@@ -1,0 +1,9 @@
+work/
+data/
+third_party/
+llm_api/*.yaml
+!llm_api/example.yaml
+__pycache__/
+*.pyc
+.venv*/
+*.log

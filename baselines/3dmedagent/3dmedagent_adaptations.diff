@@ -1,0 +1,323 @@
+diff --git a/Final_Test/GPT_memory_t1s.py b/Final_Test/GPT_memory_t1s.py
+index b281e60..b0bdc68 100644
+--- a/Final_Test/GPT_memory_t1s.py
++++ b/Final_Test/GPT_memory_t1s.py
+@@ -777,6 +777,15 @@ async def main() -> None:
+     print(f"T1S records with visual iterations: {sum(1 for record in records if record.get('t1s_included'))}")
+     print(f"T1S total visual iterations: {sum(int(record.get('t1s_iteration_count') or 0) for record in records)}")
+ 
++    # ADAPTATION (ours, documented): print/persist API token usage (HANDOFF 6).
++    # Reporting only; does not affect prompts or control flow.
++    try:
++        from config import dump_usage
++
++        print(f"API usage: {json.dumps(dump_usage())}")
++    except Exception as exc:  # noqa: BLE001
++        print(f"API usage unavailable: {exc}")
++
+     if args.dry_run and records:
+         preview = records[0].get("facts_memory") or {}
+         preview = {
+diff --git a/Final_Test/config.py b/Final_Test/config.py
+index ba607e4..d42b41d 100644
+--- a/Final_Test/config.py
++++ b/Final_Test/config.py
+@@ -66,6 +66,65 @@ def _load_api_key() -> str:
+ OPENAI_API_KEY = _load_api_key()
+ 
+ 
++# ============================================================================
++# ADAPTATION (ours, documented). Two additions, both no-ops unless the env var
++# is set, so the released behaviour is unchanged by default:
++#
++#  1. FINAL_TEST_EXTRA_BODY: JSON merged into every chat.completions.create()
++#     as extra_body. We need it only to run GLM-5.3-Flash with thinking
++#     disabled ({"thinking": {"type": "disabled"}}), matching how our own
++#     agent calls GLM (HANDOFF 5.3).
++#  2. Token accounting: the released code drops response.usage, and HANDOFF 6
++#     asks for per-model token totals. record_usage() only accumulates and
++#     never influences the prompts or the control flow.
++# ============================================================================
++import json as _json  # noqa: E402
++import threading as _threading  # noqa: E402
++
++EXTRA_BODY = _json.loads(os.environ.get("FINAL_TEST_EXTRA_BODY") or "{}")
++
++API_USAGE = {
++    "calls": 0,
++    "calls_with_usage": 0,
++    "prompt_tokens": 0,
++    "completion_tokens": 0,
++    "total_tokens": 0,
++}
++_USAGE_LOCK = _threading.Lock()
++
++
++def extra_body_kwargs() -> dict:
++    return {"extra_body": EXTRA_BODY} if EXTRA_BODY else {}
++
++
++def record_usage(response: Any) -> None:
++    usage = getattr(response, "usage", None)
++    with _USAGE_LOCK:
++        API_USAGE["calls"] += 1
++        if usage is None:
++            return
++        API_USAGE["calls_with_usage"] += 1
++        for key, attr in (
++            ("prompt_tokens", "prompt_tokens"),
++            ("completion_tokens", "completion_tokens"),
++            ("total_tokens", "total_tokens"),
++        ):
++            value = getattr(usage, attr, None)
++            if isinstance(value, int):
++                API_USAGE[key] += value
++
++
++def dump_usage(path: str | None = None) -> dict:
++    target = path or os.environ.get("FINAL_TEST_USAGE_LOG")
++    with _USAGE_LOCK:
++        snapshot = dict(API_USAGE)
++    if target:
++        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
++        with open(target, "w", encoding="utf-8") as handle:
++            _json.dump(snapshot, handle, indent=2)
++    return snapshot
++
++
+ def _apply_local_overrides() -> None:
+     try:
+         from config_run import LOCAL_OVERRIDES
+diff --git a/Final_Test/pipeline_utils.py b/Final_Test/pipeline_utils.py
+index aea3125..b240c13 100644
+--- a/Final_Test/pipeline_utils.py
++++ b/Final_Test/pipeline_utils.py
+@@ -28,6 +28,8 @@ from config import (  # noqa: E402
+     OPENAI_API_KEY,
+     SYSTEM_PROMPT,
+     TARGET_SUBTYPES,
++    extra_body_kwargs,  # ADAPTATION (ours): GLM thinking-disabled passthrough
++    record_usage,       # ADAPTATION (ours): token accounting only
+ )
+ from Tool_Box.io import safe_json_loads  # noqa: E402
+ 
+@@ -44,7 +46,9 @@ async def call_gpt(prompt: str, model: str = MODEL_NAME) -> str:
+                     {"role": "system", "content": SYSTEM_PROMPT},
+                     {"role": "user", "content": prompt},
+                 ],
++                **extra_body_kwargs(),
+             )
++            record_usage(response)
+             return response.choices[0].message.content
+         except Exception:
+             if attempt == MAX_RETRIES - 1:
+diff --git a/Final_Test/slice_tools.py b/Final_Test/slice_tools.py
+index 8d30512..6e8c64e 100644
+--- a/Final_Test/slice_tools.py
++++ b/Final_Test/slice_tools.py
+@@ -16,7 +16,7 @@ import cv2
+ import nibabel as nib
+ import numpy as np
+ 
+-from config import RAW_CT_ROOT, SUBSET_ROOT, as_str
++from config import RAW_CT_ROOT, SUBSET_ROOT, as_str, extra_body_kwargs, record_usage
+ from Tool_Box.io import safe_json_loads
+ from t1s_prompt_policies import (
+     build_observer_policy,
+@@ -662,7 +662,11 @@ async def call_vlm_with_image(
+                     {"role": "system", "content": system_prompt},
+                     {"role": "user", "content": content},
+                 ],
++                # ADAPTATION (ours): GLM thinking-disabled passthrough + token
++                # accounting. No-op when FINAL_TEST_EXTRA_BODY is unset.
++                **extra_body_kwargs(),
+             )
++            record_usage(response)
+             return response.choices[0].message.content
+         except Exception:
+             if attempt == max_retries - 1:
+diff --git a/SegAgent/VISTA3d/configs/infer.yaml b/SegAgent/VISTA3d/configs/infer.yaml
+index 8329e27..a1b28a9 100644
+--- a/SegAgent/VISTA3d/configs/infer.yaml
++++ b/SegAgent/VISTA3d/configs/infer.yaml
+@@ -1,7 +1,10 @@
+ amp: true
+ input_channels: 1
+ patch_size: [160, 160, 160]
+-bundle_root: '/mnt/nas/ziyue/project/3DMedAgent/VISTA/vista3d/models'
++# ADAPTATION (ours, documented): bundle_root was the authors' absolute path.
++# Points at the MONAI VISTA3D checkpoint (nvidia/NV-Segment-CT
++# vista3d_pretrained_model/model_monai1.3.pt, saved as model.pt).
++bundle_root: '<path to the VISTA3D bundle_models directory>'
+ fold: 0
+ infer: {ckpt_name: $@bundle_root + '/model.pt',
+         output_path: $@bundle_root + '/prediction',
+diff --git a/SegAgent/VISTA3d/vista3d_Segmentator.py b/SegAgent/VISTA3d/vista3d_Segmentator.py
+index adcb74b..993147b 100644
+--- a/SegAgent/VISTA3d/vista3d_Segmentator.py
++++ b/SegAgent/VISTA3d/vista3d_Segmentator.py
+@@ -5,7 +5,11 @@ import numpy as np
+ import nibabel as nib
+ 
+ # 指向真正的 Vista3D 仓库根目录（包含 scripts/ 和 vista3d/）
+-VISTA3D_ROOT = "/mnt/blobdata/project/3DMedAgent/VISTA/vista3d"
++# ADAPTATION (ours, documented): the original hard-coded the authors' absolute
++# path. Read it from VISTA3D_REPO_ROOT instead; the default is unchanged.
++VISTA3D_ROOT = os.environ.get(
++    "VISTA3D_REPO_ROOT", "/mnt/blobdata/project/3DMedAgent/VISTA/vista3d"
++)
+ 
+ if VISTA3D_ROOT not in sys.path:
+     sys.path.insert(0, VISTA3D_ROOT)
+diff --git a/SegAgent/__init__.py b/SegAgent/__init__.py
+index b46c2e1..b593a1e 100644
+--- a/SegAgent/__init__.py
++++ b/SegAgent/__init__.py
+@@ -1,3 +1,26 @@
+-from .BiomedParse.BiomedParse_Segmentator import BiomedParse_Segmentator
+-from .VISTA3d.vista3d_Segmentator import Vista3D_Segmentator
+-from .TotalSegmentator import run_totalsegmentator_cli
+\ No newline at end of file
++from .TotalSegmentator import run_totalsegmentator_cli
++
++# ADAPTATION (ours, documented): the original eagerly imported all three
++# backends, so BiomedParse's heavy deps (detectron2 / azureml / hydra) were
++# required even when running vista3d or totalseg. We make the two optional
++# backends lazy so the unused one cannot block the run. Behaviour of a backend
++# that IS used is unchanged.
++try:
++    from .BiomedParse.BiomedParse_Segmentator import BiomedParse_Segmentator
++except Exception as _exc:  # noqa: BLE001
++    _biomedparse_import_error = _exc
++
++    def BiomedParse_Segmentator(*args, **kwargs):  # type: ignore[misc]
++        raise ImportError(
++            "BiomedParse backend unavailable in this environment"
++        ) from _biomedparse_import_error
++
++try:
++    from .VISTA3d.vista3d_Segmentator import Vista3D_Segmentator
++except Exception as _exc2:  # noqa: BLE001
++    _vista3d_import_error = _exc2
++
++    def Vista3D_Segmentator(*args, **kwargs):  # type: ignore[misc]
++        raise ImportError(
++            "VISTA3D backend unavailable in this environment"
++        ) from _vista3d_import_error
+diff --git a/Structural_Report/main.py b/Structural_Report/main.py
+index 1ba7085..1db3911 100644
+--- a/Structural_Report/main.py
++++ b/Structural_Report/main.py
+@@ -186,11 +186,24 @@ def process_one_case(args):
+ 
+     subset = vqa_data[vqa_data["Image ID"] == img_id]
+     dataset = subset["dataset"].dropna().unique()[0]
+-    ct_folder = f"/mnt/blobdata/ReXGroundingCT/data/ReXGroundingCT/img/{img_id}.nii.gz"
+-    # mask_folder = f"/mnt/blobdata/data/DeepTumorVQA/Subset-v3/segmentations/VISTA3D/{dataset}/{img_id}"
+-    # csv_file = f"/mnt/blobdata/data/DeepTumorVQA/Subset-v3/structured_report/VISTA3D/{img_id}_report.csv"
+-    mask_folder = f"/mnt/blobdata/ReXGroundingCT/data/ReXGroundingCT/label/{img_id}.nii.gz"
+-    csv_file = f"/mnt/blobdata/ReXGroundingCT/structured_report/{img_id}_report.csv"
++    # ADAPTATION (ours, documented): the released __main__ was wired to the
++    # authors' ReXGroundingCT (chest) experiment; the DeepTumorVQA paths were
++    # present but commented out (see git history of this file). We restore the
++    # DeepTumorVQA branch and make its roots env-driven. The report-dir default
++    # follows Final_Test/config.py (DATA_ROOT/structured_report/VISTA3D), not
++    # the Subset-v3/... path in the old comment, which config.py does not read.
++    data_root = os.environ.get("DEEPTUMORVQA_DATA_ROOT", "/mnt/blobdata/data/DeepTumorVQA")
++    seg_backend_dir = os.environ.get("SEG_OUTPUT_SUBDIR", "VISTA3D")
++    report_dir = os.environ.get(
++        "STRUCTURED_REPORT_DIR",
++        os.path.join(data_root, "structured_report", seg_backend_dir),
++    )
++    os.makedirs(report_dir, exist_ok=True)
++    ct_folder = os.path.join(data_root, "data", dataset, "img", f"{img_id}.nii.gz")
++    mask_folder = os.path.join(
++        data_root, "Subset-v3", "segmentations", seg_backend_dir, dataset, img_id
++    )
++    csv_file = os.path.join(report_dir, f"{img_id}_report.csv")
+     with open(os.devnull, "w") as f, redirect_stdout(f):
+         generate_reports(
+             ct_folder=ct_folder,
+@@ -203,13 +216,16 @@ def process_one_case(args):
+ 
+ 
+ def main():
+-    # vqa_path = "/mnt/blobdata/code/3DMedAgent/VQA/DeepTumorVQA_sampled-v3.csv"
+-    vqa_path = "/mnt/blobdata/ReXGroundingCT/data_json/DeepChestVQA.csv"
++    # ADAPTATION (ours, documented): question file + worker count from env.
++    # Their released default pointed at the chest experiment's CSV.
++    vqa_path = os.environ.get(
++        "FINAL_TEST_VQA_PATH", "/mnt/blobdata/ReXGroundingCT/data_json/DeepChestVQA.csv"
++    )
+     vqa_data = pd.read_csv(vqa_path)
+ 
+     image_ids = vqa_data["Image ID"].dropna().unique()
+ 
+-    num_workers = 12
++    num_workers = int(os.environ.get("REPORT_NUM_WORKERS", "12"))
+ 
+     with mp.Pool(processes=num_workers) as pool:
+         for _ in tqdm(
+diff --git a/segmentation.py b/segmentation.py
+index 9e4747c..ad345cb 100644
+--- a/segmentation.py
++++ b/segmentation.py
+@@ -5,7 +5,9 @@ os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+ # ============================================================
+ # Backend selection
+ # ============================================================
+-SEG_BACKEND = "totalseg"   # "biomedparse" | "vista3d" | "totalseg"
++SEG_BACKEND = os.environ.get("SEG_BACKEND", "totalseg")   # "biomedparse" | "vista3d" | "totalseg"
++# ADAPTATION (ours, documented): backend read from $SEG_BACKEND; default is the
++# released default ("totalseg"), so behaviour without the env var is unchanged.
+ 
+ # ============================================================
+ # ------------------ GPU device limit ------------------------
+@@ -51,8 +53,10 @@ else:
+ # ============================================================
+ # ------------------ paths & imports -------------------------
+ # ============================================================
+-PROJECT_ROOT = "/mnt/blobdata/project/3DMedAgent"
+-DATA_ROOT = "/mnt/blobdata/data/DeepTumorVQA"
++# ADAPTATION (ours, documented): the two roots were hard-coded to the authors'
++# absolute paths; read them from the same env vars Final_Test/config.py uses.
++PROJECT_ROOT = os.environ.get("THREEDMEDAGENT_PROJECT_ROOT", "/mnt/blobdata/project/3DMedAgent")
++DATA_ROOT = os.environ.get("DEEPTUMORVQA_DATA_ROOT", "/mnt/blobdata/data/DeepTumorVQA")
+ 
+ BIOPARSE_ROOT = os.path.join(PROJECT_ROOT, "SegAgent/BiomedParse")
+ sys.path.insert(0, BIOPARSE_ROOT)
+@@ -79,7 +83,12 @@ with open(VISTA3D_LABEL_DICT_PATH, "r") as f:
+ # ============================================================
+ # ------------------ VQA data --------------------------------
+ # ============================================================
+-vqa_file = os.path.join(PROJECT_ROOT, "VQA/DeepTumorVQA_sampled-v3.csv")
++# ADAPTATION (ours, documented): question-file path from $FINAL_TEST_VQA_PATH
++# (their released name is kept as the default), so we can point it at our
++# lite903 / lite1k tables without touching the rest of the script.
++vqa_file = os.environ.get(
++    "FINAL_TEST_VQA_PATH", os.path.join(PROJECT_ROOT, "VQA/DeepTumorVQA_sampled-v3.csv")
++)
+ vqa_data = pd.read_csv(vqa_file)
+ 
+ image_ids = vqa_data["Image ID"].dropna().unique()
+@@ -202,10 +211,16 @@ def preload_ref_nii(input_path: str):
+ # ============================================================
+ # ------------------ main loop --------------------------------
+ # ============================================================
+-START_IDX = 0
+-MAX_CASES = None
+-SKIP_EXISTING = True
+-LOG_EVERY = 100
++# ADAPTATION (ours, documented): run controls from env so we can time a
++# 10-case pilot and resume; defaults are the released values.
++START_IDX = int(os.environ.get("SEGMENTATION_START_IDX", "0"))
++MAX_CASES = (
++    int(os.environ["SEGMENTATION_MAX_CASES"])
++    if os.environ.get("SEGMENTATION_MAX_CASES")
++    else None
++)
++SKIP_EXISTING = os.environ.get("SEGMENTATION_SKIP_EXISTING", "1") not in ("0", "false", "False")
++LOG_EVERY = int(os.environ.get("SEGMENTATION_LOG_EVERY", "100"))
+ 
+ print(
+     "Run controls: "

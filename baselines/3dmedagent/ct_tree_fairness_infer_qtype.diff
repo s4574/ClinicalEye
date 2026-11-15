@@ -1,0 +1,23 @@
+292a293,314
+>         # [ct_tree fairness variant, env-gated, default OFF] EXT3DMA_INFER_QTYPE=1: the benchmark's question type is
+>         # NOT given to the prompts; the same model infers it from the question text (one extra text call). The CSV
+>         # value is still used by the run loop to select questions and stays in the record for scoring by type.
+>         if os.environ.get("EXT3DMA_INFER_QTYPE") == "1":
+>             raw_qt = await call_gpt(
+>                 "Classify this multiple-choice question about an abdominal CT scan into exactly one task type:\n"
+>                 "- recognition: whether something is present / which kind it is\n"
+>                 "- measurement: a quantity (size, volume, HU, count, percentage, slice position)\n"
+>                 "- visual reasoning: spatial or comparative relations (location, adjacency, distribution, comparison)\n"
+>                 "- medical reasoning: clinical interpretation combining findings with medical knowledge (grading, staging, resectability)\n"
+>                 f"QUESTION: {question}\n"
+>                 'Reply with STRICT JSON only: {"question_type": "recognition|measurement|visual reasoning|medical reasoning"}',
+>                 model=args.model)
+>             qt_json = safe_json_loads(raw_qt) or {}
+>             inferred = str(qt_json.get("question_type", "") if isinstance(qt_json, dict) else "").strip().lower()
+>             if inferred not in ("recognition", "measurement", "visual reasoning", "medical reasoning"):
+>                 inferred = ""      # -> their 'unknown' guidance
+>             record["inferred_question_type"] = inferred
+>             record["inferred_question_type_raw"] = str(raw_qt)[:300]
+>             row = dict(row)
+>             row["question type"] = inferred
+>             question_type = inferred

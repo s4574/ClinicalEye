@@ -1,0 +1,12 @@
+# Python 3.10+. Agent, baselines, probes and analysis:
+numpy>=1.24,<2
+scipy>=1.10
+nibabel>=5.2
+pillow>=10.0
+pyyaml>=6.0
+openai>=1.40
+httpx>=0.27
+pandas>=2.0
+huggingface_hub>=0.24
+# Local VLMs are served by vLLM (tested 0.14) in a separate environment: pip install vllm
+# TotalSegmentator (tested 2.18.0) in a separate environment:              pip install TotalSegmentator==2.18.0

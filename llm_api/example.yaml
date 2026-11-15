@@ -1,0 +1,14 @@
+# API models (copy to llm_api/<anything>.yaml and fill in; *.yaml in this directory is git-ignored except this example).
+# The entry name is the model id used on the command line (--models / --model).
+glm-5.3-flash:
+  base_url: https://open.bigmodel.cn/api/paas/v4
+  api_key: YOUR_ZHIPU_KEY
+  model_name: glm-5.3-flash
+claude-sonnet-5-or:            # Claude Sonnet 5 through OpenRouter
+  base_url: https://openrouter.ai/api/v1
+  api_key: YOUR_OPENROUTER_KEY
+  model_name: anthropic/claude-sonnet-5
+claude-sonnet-5:               # Claude Sonnet 5 through any OpenAI-compatible endpoint
+  base_url: https://YOUR_ENDPOINT/v1
+  api_key: YOUR_KEY
+  model_name: claude-sonnet-5
