@@ -31,6 +31,7 @@ baselines/3dmedagent/    adaptation patches and helpers for the 3DMedAgent basel
 knowledge/               anatomy knowledge base (JSON + readable Markdown)
 splits/                  evaluation question / case ids and probe items
 llm_api/example.yaml     template for API model keys (copy, then fill in; real configs are git-ignored)
+docs/                    project page (static: index.html + assets/; deploy the folder as is)
 ```
 
 ## Setup

@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ClinicalEye: anatomy-guided views for 3D CT visual question answering</title>
+<style>
+:root{
+  --blue:#0072B2; --green:#009E73; --purple:#CC79A7; --verm:#D55E00; --orange:#E69F00;
+  --ink:#1f2328; --ink2:#4a5058; --muted:#6e757d; --line:#e3e6ea; --bg2:#f6f7f9; --bg3:#eef1f4;
+  --maxw:1100px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;}
+a{color:var(--blue)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:.86em}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+/* nav */
+nav.top{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(4px)}
+nav.top .wrap{display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;height:48px}
+nav.top .brand{font-weight:700;color:var(--blue);margin-right:14px;text-decoration:none}
+nav.top a.l{color:var(--ink2);text-decoration:none;padding:6px 10px;border-radius:6px;font-size:.93em}
+nav.top a.l:hover,nav.top a.l.on{background:var(--bg3);color:var(--ink)}
+/* header */
+header.hero{text-align:center;padding:46px 0 18px}
+header.hero h1{font-size:2.5em;margin:0 0 6px;letter-spacing:-.01em;line-height:1.15}
+header.hero h1 .ce{color:var(--blue)}
+header.hero .sub{font-size:1.25em;color:var(--ink2);margin:0 auto 14px;max-width:820px}
+header.hero .meta{color:var(--muted);font-size:.95em}
+.badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:16px 0 4px}
+.badge{border:1px solid var(--line);border-radius:999px;padding:5px 14px;font-size:.9em;color:var(--ink2);background:var(--bg2);text-decoration:none}
+section{padding:34px 0 10px;border-top:1px solid var(--line);scroll-margin-top:56px}
+section:first-of-type{border-top:none}
+h2{font-size:1.65em;margin:0 0 14px}
+h3{font-size:1.18em;margin:26px 0 8px}
+p{margin:0 0 12px}
+.lead{font-size:1.07em;color:var(--ink2)}
+figure{margin:18px 0 22px}
+figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff}
+figcaption{font-size:.92em;color:var(--ink2);margin-top:8px;line-height:1.5}
+figcaption b{color:var(--ink)}
+.keymsg{border-left:4px solid var(--blue);background:#f2f7fb;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;font-size:1.05em}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fff}
+.card h4{margin:0 0 6px;font-size:1.02em}
+.card.reader{border-top:4px solid var(--blue)}
+.card.nav{border-top:4px solid var(--purple)}
+.card.graph{border-top:4px solid var(--blue)}
+.card.know{border-top:4px solid var(--green)}
+.card ul{margin:6px 0 0;padding-left:20px}
+.card li{margin:3px 0}
+.tag{display:inline-block;font-size:.78em;font-weight:600;border-radius:4px;padding:1px 7px;margin-right:4px;color:#fff;vertical-align:1px}
+.tag.reader{background:var(--blue)} .tag.nav{background:var(--purple)} .tag.tool{background:#6e757d}
+.tag.know{background:var(--green)} .tag.crit{background:var(--orange);color:#1f2328} .tag.ans{background:var(--verm)}
+.protocol{border:1px solid #cfd8e3;background:var(--bg2);border-radius:10px;padding:14px 18px;margin:18px 0}
+.protocol h4{margin:0 0 6px}
+.protocol ul{margin:4px 0 0;padding-left:20px}
+/* tables */
+.tblwrap{overflow-x:auto;margin:10px 0 6px}
+table{border-collapse:collapse;width:100%;font-size:.93em}
+th,td{padding:7px 9px;text-align:center;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th{font-weight:600;color:var(--ink2);background:var(--bg2);vertical-align:bottom;line-height:1.3}
+td:first-child,th:first-child{text-align:left;white-space:nowrap}
+tr.grp td{background:#fafbfc;font-size:.85em;color:var(--muted);text-align:left;font-weight:600;letter-spacing:.02em}
+th.ours,td.ours{background:#eaf3fa}
+th.ours{color:var(--blue)}
+td.best{font-weight:700}
+.na{color:#a5abb2}
+.tnote{font-size:.88em;color:var(--muted);margin:6px 0 14px}
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+.tile{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .v{font-size:1.65em;font-weight:700;color:var(--ink);line-height:1.1}
+.tile .k{font-size:.86em;color:var(--ink2);margin-top:4px}
+.tile .p{font-size:.8em;color:var(--muted)}
+.tile{border-top:3px solid var(--blue)}
+/* takeaways */
+ul.take{padding-left:0;list-style:none}
+ul.take li{padding:10px 14px 10px 16px;margin:8px 0;border-radius:8px;background:var(--bg2);border-left:4px solid var(--blue)}
+ul.take li.lim{border-left-color:#8a9097}
+/* trajectory viewer */
+.epi-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.epi-tabs button{font:inherit;font-size:.93em;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;cursor:pointer;color:var(--ink2);text-align:left}
+.epi-tabs button.on{border-color:var(--blue);color:var(--ink);box-shadow:0 0 0 2px #0072b222}
+.qbox{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--bg2);margin-bottom:12px}
+.qbox .q{font-size:1.12em;font-weight:600;margin-bottom:6px}
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.opt{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 10px;font-size:.93em}
+.opt.correct{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.opt.pred{background:#fdf1e9;border-color:var(--verm)}
+.verdict{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:.93em;color:var(--ink2);margin-top:8px}
+.ok{color:#007a57;font-weight:700} .bad{color:var(--verm);font-weight:700}
+.traj{display:inline-flex;gap:4px;align-items:center}
+.traj span{border-radius:4px;background:#fff;border:1px solid var(--line);padding:0 6px;font-size:.88em}
+.epnote{font-size:.9em;color:var(--ink2);margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+.viewer{display:grid;grid-template-columns:270px 1fr;gap:16px;align-items:start}
+.steplist{border:1px solid var(--line);border-radius:10px;overflow:hidden;position:sticky;top:60px;max-height:calc(100vh - 80px);overflow-y:auto}
+.steplist button{display:flex;gap:8px;width:100%;text-align:left;font:inherit;font-size:.86em;border:0;border-bottom:1px solid var(--line);background:#fff;padding:8px 10px;cursor:pointer;color:var(--ink2);align-items:flex-start;line-height:1.35}
+.steplist button:last-child{border-bottom:0}
+.steplist button:hover{background:var(--bg2)}
+.steplist button.on{background:#eaf3fa;color:var(--ink)}
+.steplist .dot{flex:0 0 10px;height:10px;border-radius:50%;margin-top:4px}
+.steplist .n{color:var(--muted);flex:0 0 18px;text-align:right}
+.steplist .indent{padding-left:22px}
+.dot.reader{background:var(--blue)} .dot.navigator{background:var(--purple)} .dot.tool{background:#8a9097}
+.detail{border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-height:300px;min-width:0}
+.dhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.dhead .who{font-weight:700;font-size:1.08em}
+.who.reader{color:var(--blue)} .who.navigator{color:var(--purple)} .who.tool{color:#5c636a}
+.ctrl button{font:inherit;font-size:.9em;border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 12px;cursor:pointer}
+.ctrl button:disabled{opacity:.4;cursor:default}
+.ctrl .pos{font-size:.88em;color:var(--muted);margin:0 6px}
+.fld{margin:10px 0}
+.fld .lab{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:3px}
+.fld .txt{white-space:pre-wrap;word-wrap:break-word}
+.quote{border-left:3px solid var(--line);padding:2px 0 2px 12px;color:var(--ink)}
+.quote.req{border-left-color:var(--purple);background:#fbf3f8;padding:8px 12px;border-radius:0 6px 6px 0}
+.ansrow{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.anspill{border:1.5px solid var(--verm);color:var(--verm);border-radius:6px;padding:2px 10px;font-weight:700}
+.confbar{display:inline-block;width:120px;height:8px;background:var(--bg3);border-radius:4px;vertical-align:middle;overflow:hidden;margin-right:6px}
+.confbar i{display:block;height:100%;background:var(--verm)}
+.ledger{width:100%;font-size:.88em}
+.ledger td,.ledger th{text-align:left;vertical-align:top}
+.st{font-size:.82em;border-radius:4px;padding:0 6px;border:1px solid var(--line)}
+.st.confirmed{color:#007a57;border-color:#9fd8c6} .st.refuted{color:var(--verm);border-color:#f0b896} .st.pending{color:#8a6d00;border-color:#efd58d}
+.call{font-size:.88em;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:6px 9px;margin:4px 0;word-wrap:break-word}
+.call b{color:var(--ink)}
+.call.view b{color:var(--purple)} .call.overview b{color:var(--blue)} .call.knowledge b{color:#9a6a00}
+details{margin:8px 0;border:1px solid var(--line);border-radius:6px;padding:4px 10px}
+details summary{cursor:pointer;font-size:.88em;color:var(--ink2);font-weight:600;padding:3px 0}
+details .txt{font-size:.9em;padding:6px 0}
+.exp{border:1px solid #e8c9db;background:#fdf8fb;border-radius:8px;padding:6px 12px;margin:10px 0}
+.exp .fld .lab{color:#a0527f}
+.imgs{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
+.imgs figure{margin:0;flex:1 1 auto;max-width:100%}
+.imgs figure.small{flex:0 1 230px}
+.imgs img{cursor:zoom-in;border:1px solid #cfd3d8}
+.imgs figcaption{font-size:.84em}
+.noimg{font-size:.86em;color:var(--muted);font-style:italic;margin-top:8px}
+.hint{font-size:.85em;color:var(--muted)}
+/* lightbox */
+#lb{position:fixed;inset:0;background:rgba(10,12,15,.88);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;cursor:zoom-out;flex-direction:column}
+#lb img{max-width:96vw;max-height:88vh;background:#000}
+#lb div{color:#ddd;font-size:.9em;margin-top:8px;text-align:center}
+footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;color:var(--muted);font-size:.92em;text-align:center}
+@media (max-width:860px){
+  .viewer{grid-template-columns:1fr}
+  .steplist{position:static;max-height:260px}
+  .grid2{grid-template-columns:1fr}
+  .tiles{grid-template-columns:1fr 1fr}
+  header.hero h1{font-size:1.9em}
+}
+@media (max-width:520px){ .tiles{grid-template-columns:1fr} body{font-size:15px} }
+</style>
+</head>
+<body>
+<nav class="top"><div class="wrap">
+  <a class="brand" href="#top">ClinicalEye</a>
+  <a class="l" href="#overview">Overview</a>
+  <a class="l" href="#method">Method</a>
+  <a class="l" href="#trajectories">Trajectories</a>
+  <a class="l" href="#results">Results</a>
+  <a class="l" href="#probes">Structure probes</a>
+  <a class="l" href="#ablations">Ablations</a>
+  <a class="l" href="#takeaways">Takeaways</a>
+</div></nav>
+
+<div class="wrap" id="top">
+<header class="hero">
+  <h1><span class="ce">ClinicalEye</span>: Finding the Right Views<br>for 3D CT Visual Question Answering</h1>
+  <p class="sub">A training-free VLM agent that, like a clinician, uses anatomy to decide <i>where to look</i> in a CT volume &mdash; and how to arrange what it shows.</p>
+  <div class="meta">Evaluated on DeepTumorVQA (multiple choice; recognition, measurement, visual reasoning, medical reasoning; 42 subtypes)</div>
+  <div class="badges">
+    <a class="badge" href="#trajectories">Interactive trajectories</a>
+    <a class="badge" href="#results">Results</a>
+    <span class="badge">Code: link to be added</span>
+  </div>
+</header>
+
+<section id="overview">
+  <h2>Overview</h2>
+  <figure>
+    <img src="assets/fig1_main.png" alt="Task and teaser figure">
+    <figcaption><b>Figure 1.</b> Task and idea. Given a 3D CT and a multiple-choice question (here: &ldquo;Is there a pancreatic ductal adenocarcinoma? A: No, B: Yes&rdquo;), fixed uniformly sampled slices rarely show what the question needs. Our agent asks for anatomy-specific views (&ldquo;where is the pancreatic head? show it next to the duodenum&rdquo;), which are located with an <span style="color:var(--blue)">anatomy graph</span> built from automatic segmentation and a cited <span style="color:var(--green)">anatomy knowledge</span> base, and rendered as a question-specific mosaic of zoomed slices with a locator. The agent then answers (<span style="color:var(--verm)">A: No</span>, correct).</figcaption>
+  </figure>
+  <p class="lead">Vision-language models (VLMs) struggle with 3D CT: the volume has far more slices than fit into a prompt, and the relevant anatomy (a pancreatic head, a vessel next to a lesion) is often small and not marked. Clinicians solve this with anatomy: they know which structures to look at, where they are, and which views to put side by side. <b>ClinicalEye</b> gives a VLM the same two resources &mdash; an <b>anatomy graph</b> computed from automatic segmentation and a cited <b>anatomy knowledge</b> base &mdash; and splits the work between a <b>reader</b> that reasons about the question and a <b>navigator</b> that only locates anatomy and composes views.</p>
+  <div class="keymsg"><b>Key message.</b> It is not only about finding the right slice, but about returning the right <i>mosaic</i> of views: the right planes, slice range, zoom, window and neighbouring structures, arranged together and explained.</div>
+  <div class="protocol">
+    <h4>Benchmark protocol</h4>
+    <ul>
+      <li><b>No benchmark metadata reaches our agent</b>: the reader starts with only the question, the answer options and the names of the segmented structures &mdash; no organ, lesion or question-type labels, and no images.</li>
+      <li>All compared methods run on the <b>same 903 questions</b> (lite903, stratified over the 42 subtypes) with the <b>same base models</b>.</li>
+      <li>One sample per condition; differences are tested with paired exact McNemar tests.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="method">
+  <h2>Method</h2>
+  <figure>
+    <img src="assets/fig2_method.png" alt="Method overview">
+    <figcaption><b>Figure 2.</b> Architecture. <b>(a) Reader VLM</b>: starts from the question, options and the names of the segmented structures / tool lesions; each turn it writes a conclusion, an answer with confidence, an evidence ledger and tool calls (overview, view, measure, compute, box, knowledge); its memory is a step log plus the evidence ledger. <b>(b) Navigator</b>: receives the reader's free-text request, locates the anatomy with the anatomy graph (and the anatomy knowledge base for unsegmented parts, marked approximate), renders candidate views with deterministic rules, checks its own renderings and adjusts (&le;2 per request), then explains its choice; it never judges findings. Its memory holds the image sets already shown and a coverage table. <b>(c) Anatomy graph</b> from CT + automatic segmentation, plus the <span style="color:var(--green)">anatomy knowledge</span> base. Bottom: the image set returned to the reader, with the explanation and code-computed per-panel content.</figcaption>
+  </figure>
+
+  <div class="grid2">
+    <div class="card graph">
+      <h4><span class="tag reader">resource</span> Anatomy graph</h4>
+      Built automatically from TotalSegmentator output.
+      <ul>
+        <li><b>Nodes</b>: segmented structures, tool lesions and liver segments, each with slice range, volume and HU.</li>
+        <li><b>Edges</b>: contact / closest distance between structures, plus the slice where it occurs.</li>
+      </ul>
+    </div>
+    <div class="card know">
+      <h4><span class="tag know">resource</span> Anatomy knowledge</h4>
+      Not every clinically relevant structure has a sufficiently good tool. A cited knowledge base gives location priors for such structures (e.g. SMA, celiac trunk, pancreatic head/tail, CBD): vertebral level, relations, appearance on axial CT, and how to locate them from segmented neighbours.
+    </div>
+    <div class="card reader">
+      <h4><span class="tag reader">agent</span> Reader VLM</h4>
+      Starts with no images. Each turn: step conclusion, current answer + confidence, evidence ledger, tool calls:
+      <ul>
+        <li><code>overview</code> &mdash; turn 0, named organs, fixed rendering</li>
+        <li><code>view</code> &mdash; a free-text need, sent to the navigator</li>
+        <li><code>measure</code> / <code>compute</code> / <code>box</code> &mdash; code on the segmentation (volume, diameter, HU, contacts; arithmetic; mark a finding)</li>
+        <li><code>knowledge</code> &mdash; <span style="color:#9a6a00">benchmark clinical criteria</span> lookup</li>
+      </ul>
+      Memory: step log + evidence ledger.
+    </div>
+    <div class="card nav">
+      <h4><span class="tag nav">agent</span> Navigator VLM (never judges findings)</h4>
+      <ul>
+        <li><b>Locate</b>: anatomy graph (slice ranges, neighbour relations) + anatomy-knowledge lookup tool; unsegmented parts are marked approximate.</li>
+        <li><b>Render</b> with deterministic rules: overview, organ, relation, finding, location, extent, free spec (plane, slices, zoom/FOV, window, locator).</li>
+        <li><b>Check</b> its own renderings and adjust (&le;2 per request).</li>
+        <li><b>Explain</b>: why this set, what each panel shows, how to read it, how the anatomy was located &mdash; plus code-computed per-panel content.</li>
+      </ul>
+      Memory: image sets already shown + coverage table.
+    </div>
+  </div>
+</section>
+
+<section id="trajectories">
+  <h2>Trajectory viewer</h2>
+  <p class="lead">Real episodes from the evaluation run, step by step. All texts are quoted from the logged episode files (long texts truncated with &ldquo;...&rdquo;); images are the renderings that were actually produced. <span style="color:var(--blue)">S#</span> = image sets delivered to the reader; <span style="color:var(--purple)">R#</span> = navigator candidate renderings.</p>
+  <div class="epi-tabs" id="epiTabs"></div>
+  <div id="qbox" class="qbox"></div>
+  <div class="viewer">
+    <div class="steplist" id="steplist" role="list"></div>
+    <div class="detail" id="detail" aria-live="polite"></div>
+  </div>
+  <p class="hint">Tip: use the &larr; / &rarr; keys to step through; click an image to enlarge.</p>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+  <p>Accuracy on lite903 (903 questions, stratified over 42 subtypes), single sample per condition. Every column uses the same base model in each row.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">+7.8 pts</div><div class="k">ClinicalEye vs 3DMedAgent, GLM-5.3-Flash</div><div class="p">p = 1e-4</div></div>
+    <div class="tile"><div class="v">+6.3 pts</div><div class="k">ClinicalEye vs 3DMedAgent, Qwen3-VL-32B</div><div class="p">p = 0.003</div></div>
+    <div class="tile"><div class="v">+9.7 pts</div><div class="k">anatomy-graph summary in a single call (GLM, InternVL)</div><div class="p">p &lt; 0.001</div></div>
+    <div class="tile"><div class="v">+10.7 pts</div><div class="k">ClinicalEye vs direct answer, Claude Sonnet 5</div><div class="p">p = 1e-7</div></div>
+  </div>
+  <div class="tblwrap">
+  <table id="maintab">
+    <thead>
+      <tr><th rowspan="2">Base model</th><th colspan="2">DeepTumorVQA</th><th rowspan="2">3DMedAgent</th><th colspan="2">Single call</th><th rowspan="2" class="ours">ClinicalEye (ours)</th></tr>
+      <tr><th>direct answer</th><th>tool agent</th><th>w/o anatomy graph</th><th>+ anatomy graph</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Qwen3-VL-32B</td><td>0.416</td><td>0.393</td><td>0.462</td><td>0.401</td><td>0.478</td><td class="ours">0.525</td></tr>
+      <tr><td>GLM-5.3-Flash</td><td>0.427</td><td>0.483</td><td>0.497</td><td>0.470</td><td>0.567</td><td class="ours">0.575</td></tr>
+      <tr><td>InternVL3.5-38B (FP8)</td><td>0.432</td><td>0.396</td><td>0.451</td><td>0.390</td><td>0.487</td><td class="ours">0.483</td></tr>
+      <tr><td>MedGemma-27B</td><td>0.404</td><td>0.309</td><td>0.393</td><td>0.377</td><td>0.414</td><td class="ours">0.433</td></tr>
+      <tr><td>Claude Sonnet 5</td><td>0.445</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td>0.513</td><td class="ours">0.553</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="tnote">Bold = best per row. &mdash; = not run. Accuracy on 903 multiple-choice questions; one sample per condition.</p>
+
+  <h3>Paired comparisons (exact McNemar)</h3>
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>Comparison</th><th>Qwen3-VL-32B</th><th>GLM-5.3-Flash</th><th>InternVL3.5-38B</th><th>MedGemma-27B</th><th>Claude Sonnet 5</th></tr></thead>
+    <tbody>
+      <tr><td>ClinicalEye vs 3DMedAgent</td><td>+6.3 (p=0.003)</td><td>+7.8 (p=1e-4)</td><td>+3.1 (n.s.)</td><td>+4.0 (p=0.07)</td><td class="na">&mdash;</td></tr>
+      <tr><td>Single call: + anatomy graph vs without</td><td>+7.7 (p&lt;0.001)</td><td>+9.7 (p&lt;0.001)</td><td>+9.7 (p&lt;0.001)</td><td>+3.7 (p=0.05)</td><td class="na">&mdash;</td></tr>
+      <tr><td>ClinicalEye vs single call + anatomy graph</td><td>+4.7 (p=0.012)</td><td>n.s.</td><td>n.s.</td><td>n.s.</td><td>+4.0 (p=0.043)</td></tr>
+      <tr><td>ClinicalEye vs direct answer</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td>+10.7 (p=1e-7)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="tnote">Differences in accuracy points. 3DMedAgent with benchmark metadata (organ / lesion / question type) removed, as in our protocol: Qwen 0.453, GLM 0.484, InternVL 0.464, MedGemma 0.391.</p>
+
+  <figure>
+    <img src="assets/fig_radar.png" alt="Accuracy by question type">
+    <figcaption><b>Figure 3.</b> Accuracy by question type (recognition, measurement, visual reasoning, medical reasoning) for four open base models: direct answer (grey), benchmark tool agent (orange), 3DMedAgent (reddish purple) and ours (blue). Ours is highest on recognition for all four models; on measurement and medical reasoning 3DMedAgent is on par or slightly higher for some models.</figcaption>
+  </figure>
+
+  <h3>Calibration</h3>
+  <p>The agent's expected calibration error is lower than that of the single call for 4 of 5 base models (e.g. Qwen3-VL-32B: 0.46 &rarr; 0.33).</p>
+</section>
+
+<section id="probes">
+  <h2>Structure probes: can VLMs localise structures that have no tool?</h2>
+  <figure>
+    <img src="assets/fig3_probe_tasks.png" alt="Probe tasks">
+    <figcaption><b>Figure 4.</b> Probe tasks. <b>(a) In-plane</b>: which of four marked points lies on the structure (e.g. the superior mesenteric artery)? <b>(b) Out-of-plane</b>: the structure is not in the shown slice &mdash; is it superior or inferior (and how far)? Three tracks: image only; + <span style="color:var(--blue)">anatomy graph</span> facts computed by code (e.g. which segmented structure each point lies in or near, how far segmented neighbours extend above/below; never the target itself); + a cited <span style="color:var(--green)">anatomy knowledge</span> entry.</figcaption>
+  </figure>
+  <div class="grid2" style="align-items:start">
+    <figure style="margin-top:0">
+      <img src="assets/fig_probe_results.png" alt="Probe results">
+      <figcaption><b>Figure 5.</b> Probe accuracy for three open models. Dashed lines: chance (0.25 in-plane, 0.5 out-of-plane).</figcaption>
+    </figure>
+    <div>
+      <div class="tblwrap">
+      <table>
+        <thead><tr><th>Model</th><th>image only</th><th>+ anatomy graph</th><th>+ anatomy knowledge</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="4">In-plane: which of 4 points lies on the structure (125 items, chance 0.25)</td></tr>
+          <tr><td>Qwen3-VL-32B</td><td>0.59</td><td>0.82</td><td>0.84</td></tr>
+          <tr><td>InternVL3.5-38B</td><td>0.37</td><td>0.77</td><td>0.78</td></tr>
+          <tr><td>MedGemma-27B</td><td>0.54</td><td>0.72</td><td>0.85</td></tr>
+          <tr class="grp"><td colspan="4">Out-of-plane: superior or inferior to this slice (100 items, structures without a tool, chance 0.5)</td></tr>
+          <tr><td>Qwen3-VL-32B</td><td>0.62</td><td>0.87</td><td>0.90</td></tr>
+          <tr><td>InternVL3.5-38B</td><td>0.66</td><td>0.89</td><td>0.90</td></tr>
+          <tr><td>MedGemma-27B</td><td>0.58</td><td>0.71</td><td>0.82</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="tnote">Distance estimation (3 bins: &le;3 cm / 3&ndash;6 cm / &gt;6 cm) did not improve for any model.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ablations">
+  <h2>Ablations (lite903)</h2>
+  <h3>Navigator (Qwen3-VL-32B)</h3>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Setting</th><th>with navigator</th><th>without navigator</th><th>&Delta;</th><th>wins / losses</th><th>p</th></tr></thead>
+    <tbody>
+      <tr><td>Pure views</td><td>0.526</td><td>0.492</td><td>+3.4</td><td>+72 / &minus;41</td><td>0.005</td></tr>
+      <tr><td>Missing tool</td><td>0.404</td><td>0.381</td><td>+2.3</td><td>+65 / &minus;44</td><td>0.055</td></tr>
+    </tbody>
+  </table></div>
+  <p>(a) To isolate the navigator's role in finding and explaining views, both variants are given pure views: the images contain only the CT, and all anatomical information reaches the reader as text. Removing the navigator costs 3.4 points (52.6 &rarr; 49.2, +72/&minus;41, p=0.005).</p>
+  <p>(b) When the tool for the question's organ is missing (missing-tool setting), the agent with the navigator keeps more accuracy than without it (40.4 vs 38.1, +65/&minus;44, p=0.055).</p>
+  <p class="tnote">Replication on InternVL3.5 and MedGemma is running.</p>
+
+  <div class="grid2">
+    <div>
+      <h3>Memory and anatomy graph (Qwen3-VL-32B)</h3>
+      <div class="tblwrap"><table>
+        <thead><tr><th>Condition</th><th>Accuracy</th><th>&Delta;</th></tr></thead>
+        <tbody>
+          <tr><td>Full ClinicalEye</td><td>0.525</td><td>&mdash;</td></tr>
+          <tr><td>w/o reader memory</td><td>0.444</td><td>&minus;8.1 (p=5e-7)</td></tr>
+          <tr><td>w/o navigator memory</td><td>0.519</td><td>&minus;0.6 (n.s.)</td></tr>
+          <tr><td>Single call w/o anatomy graph (vs single call, 0.478)</td><td>0.401</td><td>&minus;7.8 (p&lt;1e-4)</td></tr>
+        </tbody>
+      </table></div>
+      <p class="tnote">Single call without the anatomy graph: &minus;7.8 (47.8 &rarr; 40.1, p&lt;1e-4).</p>
+    </div>
+    <div>
+      <h3>Missing-tool simulation (single call)</h3>
+      <p>The question's organ is removed from the segmentation (and from the graph, vocabulary, measurements and tool lesions), not from the images. Even the single call, which relies least on the tool, drops 5.4 points with Qwen3-VL (47.8 &rarr; 42.4, p=0.007) and 9.9 points with GLM (56.7 &rarr; 46.8, p&lt;1e-6).</p>
+    </div>
+  </div>
+</section>
+
+<section id="takeaways">
+  <h2>Takeaways</h2>
+  <ul class="take">
+    <li><b>Anatomy-graph facts are the main source of gain</b> over published baselines with the same base models: a single call with the anatomy-graph summary already gains +3.7 to +9.7 pts; the full agent adds a further, significant gain only for Qwen3-VL-32B (+4.7) and Claude Sonnet 5 (+4.0).</li>
+    <li><b>VLMs localise structures without a tool much better when given code-computed anatomy facts in text</b> (in-plane 0.37&ndash;0.59 &rarr; 0.72&ndash;0.82; out-of-plane 0.58&ndash;0.66 &rarr; 0.71&ndash;0.89), with a further gain from cited anatomy knowledge.</li>
+    <li><b>The navigator helps the reader understand what its views show</b> (Qwen3-VL: +3.4 points with pure views, p=0.005; +2.3 when a tool is missing, p=0.055); <b>the reader's memory matters most</b> (&minus;8.1).</li>
+    <li class="lim"><b>Limitations.</b> Single sample per condition on a 903-question set. The navigator effect is moderate and so far measured on one model. Perception of lesions remains the bottleneck. Distance estimation does not improve with anatomy facts.</li>
+  </ul>
+</section>
+</div>
+
+<footer><div class="wrap">ClinicalEye &middot; Code: (link to be added)</div></footer>
+
+<div id="lb" role="dialog" aria-label="Enlarged image"><img alt=""><div></div></div>
+
+<script>
+const TRAJ = {
+"episodes": [
+{
+"id": "bench_05374",
+"model": "GLM-5.3-Flash",
+"question": "Are there findings consistent with pancreatic ductal adenocarcinoma?",
+"options": [
+{
+"key": "A",
+"text": "No"
+},
+{
+"key": "B",
+"text": "Yes"
+}
+],
+"correct_option": "A",
+"answer_text": "No",
+"qtype": "recognition",
+"subtype": "PDAC existence",
+"pred": "A",
+"correct": true,
+"conf": 0.8,
+"final_rationale": "The zoomed pancreatic head/neck images (S2a z35-48) show homogeneous pancreatic parenchyma with no hypodense mass, no vessel encasement of the SMA/SMV region, and no biliary or pancreatic duct dilation. The small liver lesions (L3-L5) are tiny and non-specific (largest 20 mm), not convincing metastases, and the pancreas itself shows no primary tumor findings.",
+"trajectory": [
+[
+"A",
+0.5
+],
+[
+"A",
+0.55
+],
+[
+"A",
+0.8
+]
+],
+"note": "Correct answer (A: No). The reader starts from an overview, notes small liver lesions, and asks for a focused view of the pancreatic head against vessels that the tool does not segment (SMA/SMV). The navigator looks up the anatomy knowledge base, renders two candidate sets, critiques them and returns an axial + coronal mosaic with an explanation.",
+"steps": [
+{
+"actor": "reader",
+"turn": 0,
+"title": "Reader VLM - turn 0",
+"conclusion": "No images seen yet; requesting an overview of the pancreas and liver to assess for pancreatic mass and possible secondary liver lesions.",
+"answer": "A",
+"confidence": 0.5,
+"change_reason": null,
+"ledger": [],
+"calls": [
+{
+"tool": "overview",
+"args": {
+"organs": [
+"pancreas",
+"liver"
+]
+}
+}
+],
+"final": false
+},
+{
+"actor": "tool",
+"turn": 0,
+"title": "Code tool - overview rendering (S1)",
+"organs": [
+"pancreas",
+"liver"
+],
+"images": [
+{
+"src": "assets/ex05374_00.png",
+"cap": "S1a: pancreas overview, 8 axial panels (S1aP1-P8, z52-z23)"
+},
+{
+"src": "assets/ex05374_01.png",
+"cap": "S1a coronal locator with the slice levels"
+},
+{
+"src": "assets/ex05374_02.png",
+"cap": "S1b: liver overview, 8 axial panels (S1bP1-P8, z71-z13)"
+},
+{
+"src": "assets/ex05374_03.png",
+"cap": "S1b coronal locator with the slice levels"
+}
+]
+},
+{
+"actor": "reader",
+"turn": 1,
+"title": "Reader VLM - turn 1",
+"conclusion": "The pancreas overview shows no obvious large hypodense mass, but there are several liver lesions (L3 seg4 HU 93, L4 seg1 HU 39, L5 small), which could be metastases of a pancreatic primary; I need a focused view of the pancreatic head/neck with the vessels to exclude a subtle mass.",
+"answer": "A",
+"confidence": 0.55,
+"change_reason": null,
+"ledger": [
+{
+"id": "H1",
+"claim": "No gross pancreatic mass on pancreas overview",
+"evidence": "S1aP1-P8 z=52-23",
+"status": "pending"
+},
+{
+"id": "H2",
+"claim": "Multiple liver lesions could represent metastases",
+"evidence": "tool lesions L3 (seg4, HU93), L4 (seg1, HU39), L5",
+"status": "pending"
+}
+],
+"calls": [
+{
+"tool": "view",
+"args": {
+"request": "Zoomed axial and coronal images of the pancreatic head, neck and uncinate process (around z 35-48) in soft-tissue and narrow windows, showing the pancreatic parenchyma against the superior mesenteric artery/vein, portal vein and duodenum, to detect a subtle hypodense head mass, duct dilatation, or vessel contact."
+}
+}
+],
+"final": false
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 1,
+"nsub": 4,
+"title": "Navigator - request S2, step 1/4",
+"request": "Zoomed axial and coronal images of the pancreatic head, neck and uncinate process (around z 35-48) in soft-tissue and narrow windows, showing the pancreatic parenchyma against the superior mesenteric artery/vein, portal vein and duodenum, to detect a subtle hypodense head mass, duct dilatation, or vessel contact.",
+"parse": "The request targets the pancreatic head, neck and uncinate process (pancreas segmented, z 23-52; head/uncinate at the inferior end near z 23-35 where duodenum-pancreas touch at z 27) shown against the superior mesenteric artery/vein, portal vein and duodenum, in soft-tissue and narrow windows, zoomed, axial and coronal.",
+"check": "No renderings yet for this request. The overview (S1) was unzoomed soft-tissue only; a focused zoomed view with vessel relations and narrow window is still needed.",
+"action": {
+"do": "anatomy knowledge lookup",
+"detail": "superior mesenteric artery and superior mesenteric vein relative to pancreas head/uncinate, and how to locate them from segmented pancreas, duodenum, aorta, inferior_vena_cava"
+},
+"images": [],
+"lookup": "anatomy 'superior mesenteric artery and superior mesenteric vein relative to pancreas head/uncinate, and how to locate them from segmented pancreas, duodenum, aorta, inferior_vena_cava':\n[pancreas_head] Enlarged right part of the pancreas lying within the C-loop of the duodenum; the uncinate process is the part of the lower head derived from the ventral bud. | level: Pancreas as a whole crosses L1-L2. | relations (patient frame): posterior: inferior vena cava, renal vein, common bile duct (groove on posterosuperior surface of head); left: pancreatic neck / body (pancreas continues to the left toward the spleen); right: duodenum (C-loop surrounds the head; 2nd part); other: uncinate process lies posterior to the SMA, uncinate process crosses anterior to the aorta between SMA and IMA origins (with left renal vein and 3rd part of duodenum) | on axial CT: Soft-tissue gland on slices around L1-L2, nestled in the concavity of the duodenal C-loop (2nd part lateral/right), lying on (anterior to) the IVC; the uncinate process is the lower head part extending behind the SMA, anterior to the aorta. The distal CBD runs in a groove on its posterosuperior surface toward the 2nd part of the duodenum. | locate from segmented structures: Take the right-most part of `pancreas` that is enclosed by `duodenum` (C-loop) and lies directly anterior to `inferior_vena_cava`; the uncinate is the lowest/most medial head tissue lying anterior to `aorta`. | variants: Pancreas divisum (most common developmental anomaly, ~10-15%): failure of bud fusion (ductal variant).; Annular pancreas: pancreatic tissue encircling the duodenum from incomplete rotation of the ventral bud (variant).; Circumportal pancreas: pancreatic tissue encircling the portal vein/its tributaries, thought to arise when the uncinat ...",
+"render": null
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 2,
+"nsub": 4,
+"title": "Navigator - request S2, step 2/4",
+"request": null,
+"parse": "The request targets the pancreatic head, neck and uncinate process (pancreas segmentation z 23-52; head at the right end enclosed by the duodenal C-loop, touching the duodenum @z27 and the IVC @z33; portal vein/splenic vein touches the pancreas @z47), shown against the SMV (right of the SMA, anterior to the uncinate, approximate — not segmented), portal vein, and duodenum, zoomed axial z~35-48 plus a coronal view, in soft-tissue and narrow windows.",
+"check": "No renderings yet for this focused request; the previous overview was unzoomed axial only.",
+"action": {
+"do": "render R1 (rule: spec)",
+"detail": "{\"target\": \"pancreas\", \"plane\": \"axial\", \"slices\": \"range\", \"z_from\": 35, \"z_to\": 48, \"fov_mm\": 110, \"outline_structures\": [\"pancreas\", \"duodenum\", \"aorta\", \"inferior_vena_cava\", \"portal_vein_and_splenic_vein\", \"vertebrae_L1\"], \"overlay\": [], \"locator\": true, \"window\": \"soft_tissue\"}"
+},
+"images": [
+{
+"src": "assets/ex05374_04.png",
+"cap": "Candidate R1: 12 zoomed axial panels (R1P1-P12, z48-z35)"
+},
+{
+"src": "assets/ex05374_05.png",
+"cap": "R1 axial locator z=44, crop boxed"
+}
+],
+"lookup": null,
+"render": {
+"rid": "R1",
+"note": "custom view",
+"desc": "Image 1: 12 axial slices (superior first) cropped to pancreas (field 111 x 111 mm), window soft_tissue: R1P1 z=48, R1P2 z=47, R1P3 z=46, R1P4 z=44, R1P5 z=43, R1P6 z=42, R1P7 z=41, R1P8 z=40, R1P9 z=39, R1P10 z=37, R1P11 z=36, R1P12 z=35. Outlined (labelled, segmentation, can be imperfect): pancreas, duodenum, aorta, inferior_vena_cava, portal_vein_and_splenic_vein. Image 2: full axial slice z=44 with the crop region boxed.",
+"content": "R1P1 z=48: pancreas 12%, stomach 10%, colon 8%, aorta 3%, spleen 3%, adrenal_gland_left 1%, portal_vein_and_splenic_vein 1%; liver segments: 3 100%; R1P2 z=47: pancreas 16%, colon 7%, stomach 3%, portal_vein_and_splenic_vein 3%, aorta 3%, adrenal_gland_left 1%; liver segments: 3 100%; R1P3 z=46: pancreas 19%, colon 6%, portal_vein_and_splenic_vein 4%, aorta 3%, stomach 2%, adrenal_gland_left 1%; R1P4 z=44: pancreas 21%, stomach 4%, portal_vein_and_splenic_vein 4%, colon 3%, kidney_left 3%, aorta 2%, adrenal_gland_left 1%; R1P5 z=43: pancreas 18%, kidney_left 5%, stomach 4%, aorta 2%, portal_vein_and_splenic_vein 2%, colon 2%; R1P6 z=42: pancreas 16%, kidney_left 6%, stomach 5%, aorta 3%, por ...",
+"overlap": "overlap with the set shown at turn 0: 42% of slices, field-of-view IoU 0.61 (same plane and window)"
+}
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 3,
+"nsub": 4,
+"title": "Navigator - request S2, step 3/4",
+"request": null,
+"parse": "Pancreatic head, neck and uncinate process (z~35-48) with SMA/SMV, portal vein and duodenum. Head = rightmost pancreas part inside the duodenal C-loop anterior to the IVC; uncinate = lowest medial head tissue anterior to the aorta, behind the SMA (SMA = round vessel arising anterior off the aorta at L1, unsegmented - approximate location from aorta/vertebrae_L1).",
+"check": "R1 shows zoomed axial slices z 35-48 over the pancreas with pancreas, duodenum, aorta, IVC and portal/splenic vein outlined. The neck/body and portal confluence are well shown at z 41-48; at the lower slices (z 35-40) the head region and duodenal C-loop are in view but the crops are centred on the body/tail so the head sits at the crop edge, and the coronal plane requested by the radiologist is still missing. No narrow-window view has been rendered yet.",
+"action": {
+"do": "render R2 (rule: spec)",
+"detail": "{\"target\": \"pancreas\", \"plane\": \"coronal\", \"slices\": \"range\", \"z_from\": 33, \"z_to\": 45, \"fov_mm\": 130, \"outline_structures\": [\"pancreas\", \"duodenum\", \"aorta\", \"inferior_vena_cava\", \"portal_vein_and_splenic_vein\", \"small_bowel\"], \"overlay\": [], \"locator\": true, \"window\": \"soft_tissue\"}"
+},
+"images": [
+{
+"src": "assets/ex05374_06.png",
+"cap": "Candidate R2: 3 coronal planes (R2P1-P3, y=156/168/182)"
+},
+{
+"src": "assets/ex05374_07.png",
+"cap": "R2 axial locator z=44, crop boxed"
+}
+],
+"lookup": null,
+"render": {
+"rid": "R2",
+"note": "custom view",
+"desc": "Image 1: 3 coronal planes P1-P3 through pancreas (image top = superior; image left = patient right), z 33-45, window soft_tissue. Code-computed content per plane: R2P1 y=156: pancreas 21%, duodenum 6%, kidney_left 2%, portal_vein_and_splenic_vein 2%, inferior_vena_cava 1%; R2P2 y=168: pancreas 20%, small_bowel 9%, colon 8%, portal_vein_and_splenic_vein 5%; R2P3 y=182: small_bowel 24%, pancreas 13%, portal_vein_and_splenic_vein 10%, colon 8%. Outlined (labelled, segmentation, can be imperfect): pancreas, duodenum, aorta, inferior_vena_cava, portal_vein_and_splenic_vein, small_bowel. Image 2: full axial slice z=44 with the crop region boxed.",
+"content": "",
+"overlap": "overlap with earlier image sets not computed (non-axial view)"
+}
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 4,
+"nsub": 4,
+"title": "Navigator - finish, returns image set S2",
+"request": null,
+"parse": "The request targets the pancreatic head, neck and uncinate process (z≈35–48) with their key relations: SMA/SMV, portal vein, IVC and duodenum. The pancreas is segmented; the head is identified as the right-most pancreas part enclosed by the duodenal C-loop lying anterior to the IVC, and the uncinate as the lowest, most medial head tissue anterior to the aorta (the SMA itself is not segmented and is located approximately as the round vessel arising anterior to the aorta at L1, posterior to the pancreatic neck, with the SMV to its right).",
+"check": "R1 provides 12 zoomed axial slices (z 35–48, 111 mm field, soft-tissue window) with pancreas, duodenum, aorta, IVC and portal/splenic vein outlined, plus a locator — this covers head, neck and lower body against the vessels, with the duodenal C-loop visible on the lower slices (z 35–37). R2 adds 3 coronal planes (z 33–45, 130 mm field) showing the pancreas in the duodenal concavity and its relation to the portal/SMV, though these panels are lower in contrast and partly obscured by labels. The requested narrow window was not rendered, and the SMA itself is not segmented (only its expected position relative to the aorta/pancreas can be described). No renderings remain, so I hand over the best available set.",
+"action": {
+"do": "finish",
+"detail": "chosen renderings: R1, R2 -> delivered to the reader as S2a, S2b"
+},
+"images": [
+{
+"src": "assets/ex05374_08.png",
+"cap": "S2a (from R1): 12 zoomed axial panels S2aP1-P12, z48-z35"
+},
+{
+"src": "assets/ex05374_09.png",
+"cap": "S2b (from R2): 3 coronal planes S2bP1-P3"
+}
+],
+"lookup": null,
+"render": null,
+"explanation": {
+"why": "S2a directly answers the request: zoomed axial views of the pancreatic head/neck/uncinate region (z 35–48) in soft-tissue window with the duodenum, aorta, IVC and portal/splenic vein outlined, allowing assessment of parenchyma–vessel contact in the head region. S2b adds a orthogonal (coronal) view of the head in the duodenal C-loop and its relation to the portal vein/SMV, which the earlier unzoomed overview (S1) could not show. Neither set overlays tool-lesion contours, which is appropriate since the question concerns the pancreas, not the liver lesions.",
+"what_it_shows": "S2a: 12 axial slices z=35–48 (2.5 mm increments, superior first), 111×111 mm crop centred on the pancreas, soft-tissue window; outlined/labelled: pancreas (yellow), portal_vein_and_splenic_vein (orange), aorta (green), duodenum (blue), inferior_vena_cava. The pancreatic head and uncinate region correspond to the lower slices (z≈35–41) where the duodenal C-loop is outlined; the neck/body against the portal vein is on z≈43–48. Image 2 is a full axial locator at z=44 with the crop boxed. S2b: 3 coronal planes (image top = superior, image left = patient right) through the pancreatic head/uncinate, z 33–45, 130 mm field, soft-tissue window, with pancreas, duodenum, aorta, IVC, portal/splenic vein",
+"how_to_read": "Yellow outline = pancreas; orange = portal/splenic vein; green = aorta; blue = duodenum; all outlines come from the segmentation tool and can be imperfect. The SMA is not segmented — approximately, it is the small round soft-tissue structure arising from the anterior aorta wall (green outline) just caudal to the pancreatic neck, with the uncinate/3rd duodenum posterior to it and the SMV to its patient-right side (image left); judge its position from the aorta and pancreas outlines. The red box on each locator shows the crop region. Display: axial images have anterior at the top, patient right on the image left; coronal images have superior at the top.",
+"localisation": "Pancreatic head/neck located from the segmented pancreas and duodenum (head = right-most pancreas part within the duodenal C-loop, anterior to the IVC; uncinate = lowest, most medial head tissue anterior to the aorta), consistent with the anatomy index (pancreas at L1–L2, here z≈35–48). SMA/SMV are not in the segmentation, so their location is approximate, inferred from the aorta and portal vein outlines and standard anatomy (SMA origin ~1 cm below the celiac trunk at L1, anterior to the aorta, posterior to the neck; SMV to its patient-right)."
+}
+},
+{
+"actor": "reader",
+"turn": 2,
+"title": "Reader VLM - turn 2 (final answer)",
+"conclusion": "The zoomed pancreatic head/neck images (S2a z35-48) show homogeneous pancreatic parenchyma with no hypodense mass, no vessel encasement of the SMA/SMV region, and no biliary or pancreatic duct dilation. The small liver lesions (L3-L5) are tiny and non-specific (largest 20 mm), not convincing metastases, and the pancreas itself shows no primary tumor findings.",
+"answer": "A",
+"confidence": 0.8,
+"change_reason": null,
+"ledger": [
+{
+"id": "H1",
+"claim": "No gross pancreatic mass on pancreas overview",
+"evidence": "S1aP1-P8 z=52-23; confirmed on zoomed S2aP1-P12 z=48-35 with vessel outlines",
+"status": "confirmed"
+},
+{
+"id": "H2",
+"claim": "Multiple liver lesions could represent metastases",
+"evidence": "L3 seg4 20mm HU93, L4 seg1 15mm HU39, L5 4mm — small, nonspecific; no pancreatic primary to support metastatic pattern",
+"status": "refuted"
+}
+],
+"calls": [],
+"final": true
+}
+]
+},
+{
+"id": "bench_03318",
+"model": "GLM-5.3-Flash",
+"question": "Provide the attenuation type for the largest kidney tumor:",
+"options": [
+{
+"key": "A",
+"text": "hypoattenuating"
+},
+{
+"key": "B",
+"text": "hyperattenuating"
+},
+{
+"key": "C",
+"text": "isoattenuating"
+}
+],
+"correct_option": "A",
+"answer_text": "hypoattenuating",
+"qtype": "visual reasoning",
+"subtype": "largest lesion attenuation",
+"pred": "A",
+"correct": true,
+"conf": 0.8,
+"final_rationale": "The boxed left upper-pole mass measured 94.4 HU vs 99.7 HU in surrounding parenchyma, and visually the mass is darker than the enhancing parenchyma on S2aP3-P10 — confirming a hypoattenuating renal tumor. The right kidney is homogeneous with no comparable mass.",
+"trajectory": [
+[
+"B",
+0.4
+],
+[
+"B",
+0.45
+],
+[
+"A",
+0.7
+],
+[
+"A",
+0.8
+]
+],
+"note": "Correct answer (A: hypoattenuating). TotalSegmentator has no kidney-tumour class, so no tool lesion marks this tumour. The reader asks for zoomed views of both upper poles; the navigator locates them from the kidney slice ranges and returns one set per kidney. On S2a the reader sees a mass darker than the enhancing parenchyma in the left upper pole (z~118-124), boxes it on S2aP5 and switches from 'hyperattenuating' to 'hypoattenuating'. Checked afterwards against the reference masks (evaluation only): the largest kidney lesion is in the left kidney at z120-126, ~86 HU vs ~103 HU parenchyma, and the box at z=123 overlaps it. Caveat: the code marked the box measurement as failed (weak contrast); the reader still quoted its HU values, and its final answer rests on the visual comparison.",
+"steps": [
+{
+"actor": "reader",
+"turn": 0,
+"title": "Reader VLM - turn 0",
+"conclusion": "No images seen yet; requesting overview of both kidneys to look for tumors.",
+"answer": "B",
+"confidence": 0.4,
+"change_reason": null,
+"ledger": [],
+"calls": [
+{
+"tool": "overview",
+"args": {
+"organs": [
+"kidney_left",
+"kidney_right"
+]
+}
+}
+],
+"final": false
+},
+{
+"actor": "tool",
+"turn": 0,
+"title": "Code tool - overview rendering (S1)",
+"organs": [
+"kidney_left",
+"kidney_right"
+],
+"images": [
+{
+"src": "assets/ex03318_00.png",
+"cap": "S1a: left kidney overview, 8 axial panels (S1aP1-P8, z127-z89)"
+},
+{
+"src": "assets/ex03318_01.png",
+"cap": "S1a coronal locator with the slice levels"
+},
+{
+"src": "assets/ex03318_02.png",
+"cap": "S1b: right kidney overview, 8 axial panels (S1bP1-P8, z117-z77)"
+},
+{
+"src": "assets/ex03318_03.png",
+"cap": "S1b coronal locator with the slice levels"
+}
+]
+},
+{
+"actor": "reader",
+"turn": 1,
+"title": "Reader VLM - turn 1",
+"conclusion": "Overview crops show both kidneys fairly uniformly enhancing; no obvious large mass in the mid-kidney slices, but the superior poles (z~117-127) and possible subtle lesions need closer inspection. Requesting a zoomed soft-tissue view of both kidneys to search for a tumor.",
+"answer": "B",
+"confidence": 0.45,
+"change_reason": null,
+"ledger": [
+{
+"id": "H1",
+"claim": "Kidney parenchyma looks homogeneous in overview; any tumor would be at a pole or subtle",
+"evidence": "S1a/S1b panels",
+"status": "pending"
+}
+],
+"calls": [
+{
+"tool": "view",
+"args": {
+"request": "Search both kidneys for a renal tumor: zoomed axial soft-tissue slices through the upper poles (z 110-130 left, z 100-120 right) and any region where the parenchyma looks inhomogeneous, plus a thin-slab coronal of each kidney, to find and characterise any mass (solid/cystic, hypo/iso/hyperattenuating vs parenchyma)."
+}
+}
+],
+"final": false
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 1,
+"nsub": 3,
+"title": "Navigator - request S2, step 1/3",
+"request": "Search both kidneys for a renal tumor: zoomed axial soft-tissue slices through the upper poles (z 110-130 left, z 100-120 right) and any region where the parenchyma looks inhomogeneous, plus a thin-slab coronal of each kidney, to find and characterise any mass (solid/cystic, hypo/iso/hyperattenuating vs parenchyma).",
+"parse": "The request refers to the upper poles of both kidneys (patient's left kidney z~110-127, right kidney z~100-117, superior ends of the segmented kidney_left/kidney_right ranges) plus thin-slab coronal views of each kidney to characterise attenuation of any mass relative to parenchyma.",
+"check": "So far only unzoomed axial overview crops of both kidneys (S1, z 77-127, soft tissue) have been shown; no zoomed upper-pole views and no coronal thin slabs yet. The superior poles and a coronal perspective are still missing.",
+"action": {
+"do": "render R1 (rule: spec)",
+"detail": "{\"target\": \"kidney_left\", \"plane\": \"axial\", \"slices\": \"range\", \"z_from\": 118, \"z_to\": 127, \"fov_mm\": 90, \"outline_structures\": [\"kidney_left\", \"spleen\"], \"locator\": true, \"window\": \"soft_tissue\"}"
+},
+"images": [
+{
+"src": "assets/ex03318_04.png",
+"cap": "Candidate R1: 10 zoomed axial panels through the left upper pole (R1P1-P10, z127-z118)"
+},
+{
+"src": "assets/ex03318_05.png",
+"cap": "R1 axial locator z=118, crop boxed"
+}
+],
+"lookup": null,
+"render": {
+"rid": "R1",
+"note": "custom view",
+"desc": "Image 1: 10 axial slices (superior first) cropped to kidney_left (field 90 x 91 mm), window soft_tissue: R1P1 z=127, R1P2 z=126, R1P3 z=125, R1P4 z=124, R1P5 z=123, R1P6 z=122, R1P7 z=121, R1P8 z=120, R1P9 z=119, R1P10 z=118. Outlined (labelled, segmentation, can be imperfect): kidney_left, spleen. Image 2: full axial slice z=118 with the crop region boxed.",
+"content": "R1P1 z=127: spleen 18%, kidney_left 3%, adrenal_gland_left 3%, lung_lower_lobe_left 2%, rib_left_11 1%; R1P2 z=126: spleen 11%, kidney_left 10%, adrenal_gland_left 3%, rib_left_11 1%; R1P3 z=125: kidney_left 19%, spleen 4%, adrenal_gland_left 3%, rib_left_11 1%; R1P4 z=124: kidney_left 24%, adrenal_gland_left 3%, rib_left_11 1%; R1P5 z=123: kidney_left 28%, adrenal_gland_left 3%; R1P6 z=122: kidney_left 30%, adrenal_gland_left 3%; R1P7 z=121: kidney_left 32%, adrenal_gland_left 2%; R1P8 z=120: kidney_left 32%, adrenal_gland_left 2%; R1P9 z=119: kidney_left 33%, adrenal_gland_left 2%; R1P10 z=118: kidney_left 33%, adrenal_gland_left 1%",
+"overlap": "overlap with the set shown at turn 0: 20% of slices, field-of-view IoU 0.62 (same plane and window)"
+}
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 2,
+"nsub": 3,
+"title": "Navigator - request S2, step 2/3",
+"request": null,
+"parse": "The request is zoomed axial soft-tissue views through the upper poles of both kidneys to search for a renal mass and characterise its attenuation relative to parenchyma. R1 covers the left upper pole (z 118-127). The right kidney (segmented z 77-117) upper pole still needs zoomed coverage.",
+"check": "R1 shows the left kidney upper pole zoomed with kidney/spleen outlines; no attenuation characterisation can be stated by me, but the slices give the radiologist the parenchyma-to-lesion comparison. The right upper pole zoom is missing.",
+"action": {
+"do": "render R2 (rule: spec)",
+"detail": "{\"target\": \"kidney_right\", \"plane\": \"axial\", \"slices\": \"range\", \"z_from\": 108, \"z_to\": 117, \"fov_mm\": 90, \"outline_structures\": [\"kidney_right\", \"liver\"], \"locator\": true, \"window\": \"soft_tissue\"}"
+},
+"images": [
+{
+"src": "assets/ex03318_06.png",
+"cap": "Candidate R2: 10 zoomed axial panels through the right kidney (R2P1-P10, z117-z108)"
+},
+{
+"src": "assets/ex03318_07.png",
+"cap": "R2 axial locator z=98, crop boxed"
+}
+],
+"lookup": null,
+"render": {
+"rid": "R2",
+"note": "custom view",
+"desc": "Image 1: 10 axial slices (superior first) cropped to kidney_right (field 91 x 91 mm), window soft_tissue: R2P1 z=117, R2P2 z=116, R2P3 z=115, R2P4 z=114, R2P5 z=113, R2P6 z=112, R2P7 z=111, R2P8 z=110, R2P9 z=109, R2P10 z=108. Outlined (labelled, segmentation, can be imperfect): kidney_right, liver. Image 2: full axial slice z=98 with the crop region boxed.",
+"content": "R2P1 z=117: liver 65%, kidney_right 1%, inferior_vena_cava 1%; liver segments: 6 73%, 5 27%; R2P2 z=116: liver 63%, kidney_right 6%; liver segments: 6 73%, 5 27%; R2P3 z=115: liver 60%, kidney_right 10%; liver segments: 6 74%, 5 26%; R2P4 z=114: liver 57%, kidney_right 14%; liver segments: 6 74%, 5 26%; R2P5 z=113: liver 54%, kidney_right 18%; liver segments: 6 74%, 5 26%; R2P6 z=112: liver 50%, kidney_right 22%; liver segments: 6 75%, 5 25%; R2P7 z=111: liver 47%, kidney_right 24%; liver segments: 6 76%, 5 24%; R2P8 z=110: liver 44%, kidney_right 27%, iliopsoas_right 1%; liver segments: 6 77%, 5 23%; R2P9 z=109: liver 40%, kidney_right 29%, iliopsoas_right 2%; liver segments: 6 78%, 5 22%; ...",
+"overlap": "overlap with the set shown at turn 0: 30% of slices, field-of-view IoU 0.00 (same plane and window); overlap with R1: 0% of slices, field-of-view IoU 0.00"
+}
+},
+{
+"actor": "navigator",
+"turn": 1,
+"sub": 3,
+"nsub": 3,
+"title": "Navigator - finish, returns image set S2",
+"request": null,
+"parse": "The request asks to identify and characterise the largest renal tumor in either kidney, specifically its attenuation relative to renal parenchyma (hypo/iso/hyperattenuating on soft-tissue window). Kidney_left spans z 89–127 and kidney_right z 77–117; the radiologist directed attention to the upper poles (left z 118–127, right z 108–117).",
+"check": "R1 shows zoomed axial soft-tissue slices through the left kidney upper pole (z 118–127, 90 mm FOV) with the left kidney outlined and a locator. Within the outlined left upper-pole parenchyma there is a clearly less-attenuating (darker) region compared with the brightly enhancing surrounding cortex/parenchyma, most prominent from z~122 down to z~118. R2 shows the right kidney upper pole (z 108–117) outlined with liver and locator; the right kidney parenchyma appears uniformly enhancing with only the small low-attenuation renal sinus/fat region centrally, which is expected normal anatomy, not a distinct mass-like region. Thus the largest tumor is in the LEFT kidney upper pole (R1), and its attenuation is lower than the enhancing parenchyma.",
+"action": {
+"do": "finish",
+"detail": "chosen renderings: R1, R2 -> delivered to the reader as S2a, S2b"
+},
+"images": [
+{
+"src": "assets/ex03318_08.png",
+"cap": "S2a (from R1): left upper pole, S2aP1-P10, z127-z118"
+},
+{
+"src": "assets/ex03318_09.png",
+"cap": "S2b (from R2): right kidney, S2bP1-P10, z117-z108"
+}
+],
+"lookup": null,
+"render": null,
+"explanation": {
+"why": "S2a directly answers the question: it is the highest-quality zoomed view of the left upper-pole mass region, showing a distinctly hypoattenuating area against hyperenhancing parenchyma, while S2b documents the right upper pole for comparison and confirms no comparable region there. These add zoomed detail beyond the turn-0 unzoomed overview and are the final renderings available.",
+"what_it_shows": "S2a: 10 axial soft-tissue slices z=118–127 cropped to the left kidney (90×91 mm field), left kidney and spleen outlined, full-slice locator at z=118. S2b: 10 axial soft-tissue slices z=108–117 cropped to the right kidney (91×91 mm field), right kidney and liver outlined, full-slice locator at z=98.",
+"how_to_read": "Yellow outlines = segmented kidney; blue outlines = spleen (S2a) / liver (S2b). Red box on the locator shows the crop region. Image top = anterior, image left = patient right. Attenuation is judged against the enhancing renal parenchyma on the soft-tissue window.",
+"localisation": "Both kidneys are segmented, so pole localisation is from segmentation slice ranges (left kidney z 89–127, right z 77–117); no tool lesions are provided, so the mass region is identified visually on the images — any statement about it concerns only its relative attenuation as displayed, per the radiologist's question."
+}
+},
+{
+"actor": "reader",
+"turn": 2,
+"title": "Reader VLM - turn 2",
+"conclusion": "The left kidney upper pole shows a large hypoattenuating mass (darker than enhancing parenchyma) spanning z≈118–124; the right kidney appears homogeneous. I will box the left mass to confirm its attenuation by measurement.",
+"answer": "A",
+"confidence": 0.7,
+"change_reason": null,
+"ledger": [
+{
+"id": "H1",
+"claim": "Left upper-pole renal mass is hypoattenuating relative to enhancing parenchyma",
+"evidence": "S2aP3-P5 z=125-123",
+"status": "confirmed"
+},
+{
+"id": "H2",
+"claim": "Right kidney has no comparable tumor",
+"evidence": "S2b panels z=108-117",
+"status": "confirmed"
+}
+],
+"calls": [
+{
+"tool": "box",
+"args": {
+"panel": "S2aP5",
+"box": [
+0.3,
+0.35,
+0.7,
+0.75
+],
+"label": "left upper pole renal mass"
+}
+}
+],
+"final": false
+},
+{
+"actor": "reader",
+"turn": 3,
+"title": "Reader VLM - turn 3 (final answer)",
+"conclusion": "The boxed left upper-pole mass measured 94.4 HU vs 99.7 HU in surrounding parenchyma, and visually the mass is darker than the enhancing parenchyma on S2aP3-P10 — confirming a hypoattenuating renal tumor. The right kidney is homogeneous with no comparable mass.",
+"answer": "A",
+"confidence": 0.8,
+"change_reason": null,
+"ledger": [
+{
+"id": "H1",
+"claim": "Left upper-pole renal mass is hypoattenuating relative to enhancing parenchyma",
+"evidence": "S2aP3-P5 z=125-123; box F1 centre 94.4 HU vs surroundings 99.7 HU",
+"status": "confirmed"
+},
+{
+"id": "H2",
+"claim": "Right kidney has no comparable tumor",
+"evidence": "S2b panels z=108-117",
+"status": "confirmed"
+}
+],
+"calls": [],
+"final": true
+}
+]
+}
+]
+};
+(function(){
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const LONG = 420;
+  let ep = 0, cur = 0;
+  const $ = id => document.getElementById(id);
+
+  function textBlock(label, txt, cls){
+    if(txt==null || txt==='') return '';
+    cls = cls||'quote';
+    if(String(txt).length > LONG){
+      return `<div class="fld"><details><summary>${esc(label)} <span class="hint">(${String(txt).length} chars, click to expand)</span></summary><div class="txt ${cls}">${esc(txt)}</div></details><div class="txt ${cls}" data-preview>${esc(String(txt).slice(0,LONG))} ...</div></div>`;
+    }
+    return `<div class="fld"><div class="lab">${esc(label)}</div><div class="txt ${cls}">${esc(txt)}</div></div>`;
+  }
+  function imgs(list){
+    if(!list || !list.length) return '';
+    return '<div class="imgs">' + list.map(im => {
+      const small = /locator/i.test(im.cap);
+      return `<figure class="${small?'small':''}"><img loading="lazy" src="${esc(im.src)}" alt="${esc(im.cap)}" data-cap="${esc(im.cap)}"><figcaption>${esc(im.cap)}</figcaption></figure>`;
+    }).join('') + '</div>';
+  }
+  function stepLabel(s){
+    if(s.actor==='reader'){
+      const c = s.calls.map(c=>c.tool).join(', ');
+      return `Reader, turn ${s.turn}: ` + (s.final ? `final answer ${s.answer}` : (c ? `calls ${c}` : 'reasoning'));
+    }
+    if(s.actor==='tool') return `Code tool: overview (${s.organs.join(', ')})`;
+    if(s.action && s.action.do==='finish') return 'Navigator: finish & explain';
+    return `Navigator ${s.sub}/${s.nsub}: ` + (s.action ? s.action.do.replace(/ \(rule.*$/,'') : '');
+  }
+  function renderTabs(){
+    $('epiTabs').innerHTML = TRAJ.episodes.map((e,i)=>
+      `<button class="${i===ep?'on':''}" data-i="${i}"><b>Example ${i+1}</b> &middot; ${esc(e.model)}<br><span class="hint">${esc(e.subtype)} (${esc(e.qtype)})</span></button>`).join('');
+    $('epiTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{ep=+b.dataset.i;cur=0;renderAll();});
+  }
+  function renderQ(){
+    const e = TRAJ.episodes[ep];
+    const opts = e.options.map(o=>{
+      let cls='opt'; if(o.key===e.correct_option) cls+=' correct'; if(o.key===e.pred) cls+=' pred';
+      return `<span class="${cls}"><b>${esc(o.key)}</b>: ${esc(o.text)}</span>`;}).join('');
+    const traj = (e.trajectory||[]).map(t=>`<span>${esc(t[0])} ${t[1]!=null?Number(t[1]).toFixed(2):''}</span>`).join('&rarr;');
+    $('qbox').innerHTML = `<div class="q">${esc(e.question)}</div>
+      <div class="opts">${opts}</div>
+      <div class="verdict">
+        <span>Base model: <b>${esc(e.model)}</b></span>
+        <span>Type: ${esc(e.qtype)} / ${esc(e.subtype)}</span>
+        <span>Ground truth: <b>${esc(e.correct_option)}</b> (${esc(e.answer_text)})</span>
+        <span>Final answer: <b style="color:var(--verm)">${esc(e.pred)}</b>, confidence ${esc(e.conf)} &mdash; ${e.correct?'<span class="ok">correct</span>':'<span class="bad">wrong</span>'}</span>
+        <span class="traj">Answer trajectory: ${traj}</span>
+      </div>
+      ${e.note?`<div class="epnote"><b>Editor's note:</b> ${esc(e.note)}</div>`:''}`;
+  }
+  function renderList(){
+    const e = TRAJ.episodes[ep];
+    $('steplist').innerHTML = e.steps.map((s,i)=>
+      `<button role="listitem" class="${i===cur?'on':''}" data-i="${i}"><span class="n">${i+1}</span><span class="dot ${s.actor}"></span><span class="${s.actor==='navigator'?'':''}">${esc(stepLabel(s))}</span></button>`).join('');
+    $('steplist').querySelectorAll('button').forEach(b=>b.onclick=()=>{cur=+b.dataset.i;renderList();renderDetail();});
+    const on = $('steplist').querySelector('button.on'); if(on) on.scrollIntoView({block:'nearest'});
+  }
+  function renderDetail(){
+    const e = TRAJ.episodes[ep], s = e.steps[cur], n = e.steps.length;
+    const who = {reader:'Reader VLM', navigator:'Navigator VLM', tool:'Code tool'}[s.actor];
+    let h = `<div class="dhead"><div><span class="who ${s.actor}">${who}</span> <span class="hint">&middot; ${esc(s.title)}</span></div>
+      <div class="ctrl"><button id="bPrev" ${cur===0?'disabled':''}>&larr; Prev</button><span class="pos">${cur+1} / ${n}</span><button id="bNext" ${cur===n-1?'disabled':''}>Next &rarr;</button></div></div>`;
+    if(s.actor==='reader'){
+      h += textBlock('Step conclusion', s.conclusion);
+      const pc = Math.round((s.confidence||0)*100);
+      h += `<div class="fld"><div class="lab">Current answer + confidence</div><div class="ansrow"><span class="anspill">${esc(s.answer)}</span><span><span class="confbar"><i style="width:${pc}%"></i></span>${esc(s.confidence)}</span>${s.final?'<span class="tag ans">final</span>':''}</div></div>`;
+      if(s.change_reason) h += textBlock('Answer change reason', s.change_reason);
+      h += `<div class="fld"><div class="lab">Evidence ledger</div>` + (s.ledger.length ?
+        `<div class="tblwrap"><table class="ledger"><thead><tr><th>id</th><th>claim</th><th>evidence</th><th>status</th></tr></thead><tbody>` +
+        s.ledger.map(l=>`<tr><td>${esc(l.id)}</td><td>${esc(l.claim)}</td><td>${esc(l.evidence)}</td><td><span class="st ${esc(l.status)}">${esc(l.status)}</span></td></tr>`).join('') + `</tbody></table></div>`
+        : '<div class="hint">(empty)</div>') + `</div>`;
+      h += `<div class="fld"><div class="lab">Tool calls</div>` + (s.calls.length ? s.calls.map(c=>{
+        let body;
+        if(c.tool==='view') body = `<div class="quote req">${esc(c.args.request)}</div>`;
+        else body = `<span class="mono">${esc(JSON.stringify(c.args))}</span>`;
+        return `<div class="call ${esc(c.tool)}"><b>${esc(c.tool)}</b> ${body}</div>`;}).join('')
+        : `<div class="hint">none${s.final?' (final answer)':''}</div>`) + `</div>`;
+    } else if(s.actor==='tool'){
+      h += `<div class="fld"><div class="lab">Overview rendering</div><div>Organs requested by the reader: <b>${esc(s.organs.join(', '))}</b>. Fixed deterministic rendering, delivered to the reader as image set S1.</div></div>`;
+    } else {
+      if(s.request) h += `<div class="fld"><div class="lab">Free-text request from the reader</div><div class="txt quote req">${esc(s.request)}</div></div>`;
+      h += textBlock('Parse (what is requested, where the anatomy is)', s.parse);
+      h += textBlock('Check (critique of renderings so far)', s.check);
+      if(s.action) h += `<div class="fld"><div class="lab">Next action</div><div class="call"><b style="color:var(--purple)">${esc(s.action.do)}</b> <span class="mono">${esc(s.action.detail||'')}</span></div></div>`;
+      if(s.lookup) h += `<div class="fld"><details><summary><span class="tag know">anatomy knowledge</span> lookup result (${s.lookup.length} chars)</summary><div class="txt" style="font-size:.88em">${esc(s.lookup)}</div></details></div>`;
+      if(s.render){
+        h += `<div class="fld"><div class="lab">Rendering ${esc(s.render.rid)} &mdash; code output</div>`;
+        if(s.render.note) h += `<div class="hint">${esc(s.render.note)}</div>`;
+        h += `<details><summary>description, per-panel content, overlap with earlier sets</summary><div class="txt"><b>Description:</b> ${esc(s.render.desc)}\n\n<b>Per-panel content:</b> ${esc(s.render.content||'(none)')}\n\n<b>Overlap:</b> ${esc(s.render.overlap||'')}</div></details></div>`;
+      }
+      if(s.explanation){
+        const x = s.explanation;
+        h += `<div class="exp"><div class="fld"><div class="lab" style="font-size:.85em">Explanation returned to the reader</div></div>` +
+          textBlock('Why this set', x.why) + textBlock('What it shows', x.what_it_shows) +
+          textBlock('How to read it', x.how_to_read) + textBlock('How the anatomy was located', x.localisation) + `</div>`;
+      }
+    }
+    if(s.images && s.images.length) h += imgs(s.images);
+    else if(s.actor!=='reader') h += `<div class="noimg">No image is shown for this step.</div>`;
+    if(s.actor==='reader' && s.final){
+      h += `<div class="fld" style="margin-top:14px"><div class="lab">Episode result</div><div>Final answer <b style="color:var(--verm)">${esc(e.pred)}</b> &mdash; ground truth ${esc(e.correct_option)} (${esc(e.answer_text)}): ${e.correct?'<span class="ok">correct</span>':'<span class="bad">wrong</span>'}</div></div>`;
+    }
+    $('detail').innerHTML = h;
+    $('detail').querySelectorAll('details').forEach(d=>{
+      d.addEventListener('toggle',()=>{const p=d.parentNode.querySelector('[data-preview]'); if(p) p.style.display=d.open?'none':'';});
+    });
+    const bp=$('bPrev'), bn=$('bNext');
+    if(bp) bp.onclick=()=>go(-1); if(bn) bn.onclick=()=>go(1);
+    $('detail').querySelectorAll('.imgs img').forEach(im=>im.onclick=()=>openLB(im.src, im.dataset.cap));
+  }
+  function go(d){
+    const n = TRAJ.episodes[ep].steps.length;
+    cur = Math.max(0, Math.min(n-1, cur+d)); renderList(); renderDetail();
+  }
+  function renderAll(){ renderTabs(); renderQ(); renderList(); renderDetail(); }
+  document.addEventListener('keydown', ev=>{
+    if(lb.style.display==='flex'){ if(ev.key==='Escape') closeLB(); return; }
+    const r = $('trajectories').getBoundingClientRect();
+    if(r.top < window.innerHeight*0.6 && r.bottom > 100){
+      if(ev.key==='ArrowRight'){go(1);ev.preventDefault();} else if(ev.key==='ArrowLeft'){go(-1);ev.preventDefault();}
+    }
+  });
+  const lb = $('lb');
+  function openLB(src, cap){ lb.querySelector('img').src=src; lb.querySelector('div').textContent=cap||''; lb.style.display='flex'; }
+  function closeLB(){ lb.style.display='none'; }
+  lb.onclick = closeLB;
+  // bold best per row in main table
+  document.querySelectorAll('#maintab tbody tr').forEach(tr=>{
+    const tds=[...tr.querySelectorAll('td')].slice(1); const v=tds.map(t=>parseFloat(t.textContent));
+    const m=Math.max(...v.filter(x=>!isNaN(x))); tds.forEach((t,i)=>{ if(v[i]===m) t.classList.add('best'); });
+  });
+  // active nav link
+  const links=[...document.querySelectorAll('nav.top a.l')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+  window.addEventListener('scroll',()=>{
+    let k=0; secs.forEach((s,i)=>{ if(s && s.getBoundingClientRect().top<90) k=i; });
+    links.forEach((a,i)=>a.classList.toggle('on',i===k));
+  },{passive:true});
+  renderAll();
+})();
+</script>
+</body>
+</html>
