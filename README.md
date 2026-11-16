@@ -10,6 +10,8 @@ A reader VLM states in words what it needs to see. A navigator uses the graph an
 renders the views, checks them, and returns an explained image set. The agent never receives benchmark metadata (organ,
 lesion, question type or subtype); it gets the question and the CT only.
 
+Project page: <https://main.clineye.org> (also in `docs/`).
+
 This repository contains code only. The data must be obtained from its providers (see *Data*). We release:
 - the question / case **id lists** of our evaluation sets (`splits/`);
 - the structure-probe items;
